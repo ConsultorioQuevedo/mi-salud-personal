@@ -1,4 +1,10 @@
 import streamlit as st
+# from modulos.finanzas import GestorFinanciero  <-- PON UN # AL PRINCIPIO
+# from modulos.biomonitor import BiomonitorGlucosa <-- PON UN # AL PRINCIPIO
+
+st.title("Prueba de Limpieza")
+st.write("Si ves esto, el problema está en los archivos de la carpeta MODULOS")
+import streamlit as st
 import pandas as pd
 import os
 import sys
