@@ -67,7 +67,7 @@ with st.sidebar:
 st.header("📊 Tablero de Control")
 col_met1, col_met2, col_met3 = st.columns(3)
 # Al principio de app.py
-from modulos.reportes import GeneradorPDF
+
 
 # ... dentro del bloque del Sidebar ...
 with col_b:
