@@ -21,7 +21,7 @@ menu = st.sidebar.radio("Menú", ["Resumen", "Finanzas", "Salud"])
 
 if menu == "Resumen":
     res = finanzas.obtener_balance_total()
-    st.metric("Balance Neto", f"$ {res['ahorro_neto']:,.2f}")
+    st.metric("Balance total", f"$ {resumen['ahorro_neto']:,.2f}")
     
     ultimo = salud.obtener_ultimo_registro()
     # SEMÁFORO DE SALUD
