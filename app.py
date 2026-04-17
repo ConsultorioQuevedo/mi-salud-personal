@@ -18,11 +18,9 @@ st.set_page_config(page_title="Quevedo Smart System", layout="wide")
 st.title("🤖 Quevedo Smart System")
 
 menu = st.sidebar.radio("Menú", ["Resumen", "Finanzas", "Salud"])
-
-if menu == "Resumen":
-    res = finanzas.obtener_balance_total()
-    st.metric("Balance total", f"$ {resumen['ahorro_neto']:,.2f}")
-    
+# Cambiamos .obtener_balance() por .obtener_balance_total()['ahorro_neto']
+resumen = finanzas.obtener_balance_total()
+st.metric("Balance Total", f"$ {resumen['ahorro_neto']:,.2f}")
     ultimo = salud.obtener_ultimo_registro()
     # SEMÁFORO DE SALUD
     if ultimo == 0:
