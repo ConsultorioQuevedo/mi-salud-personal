@@ -1,138 +1,60 @@
 import streamlit as st
-import pandas as pd
-from datetime import datetime
-from modulos.finanzas import GestorFinanciero
-from modulos.biomonitor import BiomonitorGlucosa
-from modulos.asistente import AsistenteInteligenteQuevedo
+import sqlite3
+# Importamos tus motores (asegúrate que los nombres coincidan con tus archivos)
+from modulos import finanzas 
+# de ser necesario, importar biomonitor aquí también
 
-# CONFIGURACIÓN DE ALTA PRIORIDAD
-st.set_page_config(page_title="Quevedo Smart System", layout="wide", initial_sidebar_state="expanded")
+# 1. CONFIGURACIÓN "NIVEL DIOS" (Debe ser la primera línea de código)
+st.set_page_config(page_title="Sistema Quevedo", layout="wide", initial_sidebar_state="collapsed")
 
-@st.cache_resource
-def cargar_motores():
-    return {
-        "finanzas": GestorFinanciero(),
-        "salud": BiomonitorGlucosa(),
-        "ia": AsistenteInteligenteQuevedo()
-    }
-
-motores = cargar_motores()
-
-# --- ESTILOS PERSONALIZADOS (LIMPIEZA VISUAL) ---
+# 2. ESTILO VISUAL (Para que se vea como App profesional en el celular)
 st.markdown("""
     <style>
-    .stButton>button { width: 100%; border-radius: 10px; height: 3em; font-weight: bold; }
-    .stMetric { background-color: #f0f2f6; padding: 15px; border-radius: 15px; }
+    .stButton>button { width: 100%; border-radius: 12px; height: 3.5em; font-weight: bold; }
+    .stMetric { background-color: #f8f9fa; border: 1px solid #e0e0e0; padding: 15px; border-radius: 15px; }
+    [data-testid="stSidebar"] { background-color: #111827; color: white; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- SIDEBAR: CONTROL DE ENTRADA Y ACCESOS RÁPIDOS ---
+# 3. BARRA LATERAL (Búsqueda y Filtros)
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/3003/3003184.png", width=80)
-    st.title("Gestión Quevedo")
-    
-    # ACCESOS DIRECTOS (INTELIGENCIA CONECTADA)
-    st.subheader("🔗 Enlaces Rápidos")
-    col_a, col_b = st.columns(2)
-    with col_a:
-        st.link_button("💊 GBC", "https://farmaciagbc.com.do/")
-        st.link_button("📧 Gmail", "https://mail.google.com/")
-    with col_b:
-        st.link_button("🏥 Carol", "https://farmaciacarol.com/")
-        st.button("📄 Generar PDF", type="primary", help="Próximamente: Reporte Inteligente")
-
+    st.title("⚙️ Panel Control")
+    busqueda = st.text_input("🔍 Buscador Universal", placeholder="¿Qué deseas buscar?")
     st.divider()
-    
-    # REGISTRO DE DATOS
-    st.header("📥 Nuevo Registro")
-    mod = st.radio("Módulo Seleccionado", ["Finanzas", "Salud"])
-    
-    if mod == "Finanzas":
-        t = st.selectbox("Tipo", ["Ingreso", "Gasto"])
-        m = st.number_input("Monto", min_value=0.0)
-        c = st.text_input("Categoría")
-        if st.button("Guardar Finanzas"):
-            motores["finanzas"].registrar_transaccion(t, m, c)
-            st.success("Registrado.")
-            st.rerun()
-            
-    elif mod == "Salud":
-        n = st.number_input("Nivel Glucosa", min_value=0)
-        if st.button("Guardar Glucosa"):
-            motores["salud"].registrar_lectura(n) # Usando el método robusto del módulo
-            st.rerun()
+    if st.button("🧹 Limpiar Filtros"):
+        st.rerun()
 
-# --- CUERPO PRINCIPAL (DASHBOARD) ---
-# FILA 1: SEMÁFORO Y MÉTRICAS
-st.header("📊 Tablero de Control")
-col_met1, col_met2, col_met3 = st.columns(3)
+# 4. CUERPO PRINCIPAL (Interfaz Limpia)
+st.title("🛡️ Sistema Quevedo")
 
-with col_met1:
-    balance = motores["finanzas"].obtener_balance()
-    st.metric("Balance Neto", f"$ {balance:,.2f}")
-
-with col_met2:
-    ultimo_n = motores["salud"].obtener_ultimo_registro()
-    # SEMÁFORO INTELIGENTE
-    if ultimo_n == 0:
-        label, color = "Sin datos", "normal"
-    elif 70 <= ultimo_n <= 140:
-        label, color = "Nivel Óptimo", "normal"
-    elif 141 <= ultimo_n <= 180:
-        label, color = "Elevado", "off"
-    else:
-        label, color = "Alerta Médica", "inverse"
-    
-    st.metric("Glucosa Actual", f"{ultimo_n} mg/dL", delta=label, delta_color=color)
-
-with col_met3:
-    st.metric("Estado del Sistema", "Nivel Dios", delta="Activo")
+# Fila de Métricas (Aquí conectarás finanzas.obtener_balance() etc.)
+m1, m2 = st.columns(2)
+with m1:
+    st.metric("Balance Total", "$ 0.00") # Aquí conectaremos tu motor de finanzas
+with m2:
+    st.metric("Estado Glucosa", "Estable", delta="Semaforo: Verde")
 
 st.divider()
 
-# FILA 2: TABLAS Y BÚSQUEDA
-col_main, col_ia = st.columns([3, 1])
+# 5. HUB DE ACCESOS RÁPIDOS (Botones grandes para celular)
+st.subheader("🔗 Accesos Directos")
+col_a, col_b = st.columns(2)
+col_c, col_d = st.columns(2)
 
-with col_main:
-    # BARRA DE BÚSQUEDA UNIVERSAL
-    search = st.text_input("🔍 Barra de Búsqueda Universal (Filtra historial, categorías o fechas)")
-    
-    tab_f, tab_s = st.tabs(["💰 Movimientos Financieros", "🩸 Historial de Biomonitor"])
-    
-    with tab_f:
-        df_f = motores["finanzas"].listar_transacciones()
-        if not df_f.empty:
-            if search:
-                df_f = df_f[df_f.astype(str).apply(lambda x: search.lower() in x.str.lower()).any(axis=1)]
-            st.dataframe(df_f, use_container_width=True, hide_index=True)
-            
-            with st.expander("🗑️ Archivador / Limpieza Selectiva"):
-                id_f = st.number_input("ID a eliminar", min_value=1, step=1, key="del_f")
-                if st.button("Confirmar Borrado"):
-                    if motores["finanzas"].ejecutar_borrado("transacciones", id_f):
-                        st.success("Registro eliminado."); st.rerun()
-        else:
-            st.info("No hay datos en finanzas.")
+with col_a:
+    st.link_button("💊 Farmacia GBC", "https://farmaciagbc.com.do/") 
+with col_b:
+    st.link_button("🏥 Farmacia Carol/Value", "https://www.farmaciacarol.com/")
+with col_c:
+    st.link_button("📧 Gmail", "https://mail.google.com/")
+with col_d:
+    if st.button("📊 Generar PDF (Pronto)"):
+        st.info("Función en desarrollo para el siguiente bloque.")
 
-    with tab_s:
-        df_s = motores["salud"].obtener_historial()
-        if not df_s.empty:
-            if search:
-                df_s = df_s[df_s.astype(str).apply(lambda x: search.lower() in x.str.lower()).any(axis=1)]
-            st.dataframe(df_s, use_container_width=True, hide_index=True)
-            
-            with st.expander("🗑️ Zona de Limpieza (Salud)"):
-                id_s = st.number_input("ID a borrar", min_value=1, step=1, key="del_s")
-                if st.button("Eliminar Registro de Salud"):
-                    if motores["salud"].ejecutar_borrado("salud", id_s): # Asegurando el nombre de tabla correcto
-                        st.success("ID borrado."); st.rerun()
-
-# BLOQUE IA (DERECHA)
-with col_ia:
-    st.subheader("🧠 IA Predictiva")
-    st.info("El Asistente analiza tus datos automáticamente al limpiar el historial.")
-    if st.button("🚀 Ejecutar Análisis IA"):
-        with st.spinner("Entrenando modelos..."):
-            # Aquí llamamos a la lógica inteligente que ya definimos antes
-            st.write("✅ Tendencia calculada.")
-            st.caption("Próxima semana estable.")
+# 6. ESPACIO PARA TABLAS
+st.subheader("📝 Registros Recientes")
+# Aquí es donde la barra de búsqueda hará su magia filtrando los datos
+if busqueda:
+    st.write(f"Filtrando resultados para: {busqueda}")
+else:
+    st.write("Mostrando últimos movimientos...")
