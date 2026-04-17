@@ -1,34 +1,69 @@
 import sqlite3
 import pandas as pd
+from datetime import datetime
+import logging
 
 class BiomonitorGlucosa:
     def __init__(self, db_path="base_datos_quevedo.db"):
         self.db_path = db_path
+        self._inicializar_db()
 
-    def registrar(self, nivel, nota):
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO salud (nivel, nota, fecha) 
-            VALUES (?, ?, ?)
-        """, (nivel, nota, pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')))
-        conn.commit()
-        conn.close()
+    def _conectar(self):
+        return sqlite3.connect(self.db_path, check_same_thread=False)
 
-    # ESTA ES LA FUNCIÓN QUE TE ESTÁ DANDO EL ERROR
-    def listar_registros(self):
+    def _inicializar_db(self):
+        query = """
+        CREATE TABLE IF NOT EXISTS salud (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nivel INTEGER NOT NULL,
+            nota TEXT,
+            estado TEXT,
+            fecha DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+        with self._conectar() as conn:
+            conn.execute(query)
+
+    def _evaluar_estado(self, nivel: int):
+        """Lógica de semáforo médico para robustez de datos."""
+        if nivel < 70: return "Bajo (Hipoglucemia)"
+        if 70 <= nivel <= 140: return "Normal"
+        if 140 < nivel <= 180: return "Elevado"
+        return "Muy Alto (Hiperglucemia)"
+
+    def registrar_lectura(self, nivel: int, nota: str = ""):
+        """Registra lectura con clasificación de estado automática."""
+        if not (20 <= nivel <= 600): # Rango de seguridad de glucómetros
+            raise ValueError("Nivel de glucosa fuera de rango lógico.")
+            
+        estado = self._evaluar_estado(nivel)
+        fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
         try:
-            conn = sqlite3.connect(self.db_path)
-            query = "SELECT fecha as Fecha, nivel as Nivel, nota as Nota FROM salud ORDER BY fecha DESC"
-            df = pd.read_sql_query(query, conn)
-            conn.close()
-            return df
+            with self._conectar() as conn:
+                conn.execute("""
+                    INSERT INTO salud (nivel, nota, estado, fecha)
+                    VALUES (?, ?, ?, ?)
+                """, (nivel, nota, estado, fecha))
+                conn.commit()
+                return True
+        except sqlite3.Error as e:
+            logging.error(f"Error en salud: {e}")
+            return False
+
+    def obtener_historial(self):
+        """Retorna historial completo con estados."""
+        try:
+            with self._conectar() as conn:
+                return pd.read_sql_query("SELECT fecha as Fecha, nivel as Nivel, estado as Estado, nota as Nota FROM salud ORDER BY fecha DESC", conn)
         except Exception:
-            # Si la tabla no existe o hay error, devuelve un DataFrame vacío con las columnas correctas
-            return pd.DataFrame(columns=['Fecha', 'Nivel', 'Nota'])
+            return pd.DataFrame()
 
     def obtener_ultimo_registro(self):
-        df = self.listar_registros()
-        if not df.empty:
-            return df['Nivel'].iloc[0]
-        return 0
+        """Retorna la última métrica para el panel general."""
+        try:
+            with self._conectar() as conn:
+                res = conn.execute("SELECT nivel FROM salud ORDER BY fecha DESC LIMIT 1").fetchone()
+                return res[0] if res else 0
+        except:
+            return 0
