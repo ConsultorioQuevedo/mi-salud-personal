@@ -1,46 +1,37 @@
 import sqlite3
-from datetime import datetime
-from typing import Optional, Tuple
+import pandas as pd
 
 class BiomonitorGlucosa:
-    """
-    Sistema robusto de control glucémico.
-    Gestiona mediciones, interpretación de niveles y análisis de tendencias.
-    """
-
-    def __init__(self, db_path: str = "base_datos_quevedo.db"):
+    def __init__(self, db_path="base_datos_quevedo.db"):
         self.db_path = db_path
-        self._inicializar_bd()
 
-    def _conectar(self):
-        """Establece conexión con la base de datos central."""
-        return sqlite3.connect(self.db_path)
+    def registrar(self, nivel, nota):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO salud (nivel, nota, fecha) 
+            VALUES (?, ?, ?)
+        """, (nivel, nota, pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')))
+        conn.commit()
+        conn.close()
 
-    def _inicializar_bd(self):
-        """Crea la estructura necesaria si no existe."""
-        query = """
-            CREATE TABLE IF NOT EXISTS registro_glucosa (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                nivel REAL NOT NULL,
-                estado TEXT NOT NULL,
-                fecha DATETIME NOT NULL
-            )
-        """
+    # ESTA ES LA FUNCIÓN QUE TE ESTÁ DANDO EL ERROR
+    def listar_registros(self):
         try:
-            with self._conectar() as conn:
-                conn.execute(query)
-        except sqlite3.Error as e:
-            print(f"❌ Error al inicializar biomonitor: {e}")
+            conn = sqlite3.connect(self.db_path)
+            query = "SELECT fecha as Fecha, nivel as Nivel, nota as Nota FROM salud ORDER BY fecha DESC"
+            df = pd.read_sql_query(query, conn)
+            conn.close()
+            return df
+        except Exception:
+            # Si la tabla no existe o hay error, devuelve un DataFrame vacío con las columnas correctas
+            return pd.DataFrame(columns=['Fecha', 'Nivel', 'Nota'])
 
-    # --- Módulo de Monitoreo ---
-    def medir_glucosa(self) -> Optional[float]:
-        """Solicita y valida la entrada del usuario."""
-        try:
-            entrada = input("👉 Ingrese nivel de glucosa (mg/dL): ")
-            return float(entrada)
-        except ValueError:
-            print("⚠️ Valor inválido. Por favor, ingrese solo números.")
-            return None
+    def obtener_ultimo_registro(self):
+        df = self.listar_registros()
+        if not df.empty:
+            return df['Nivel'].iloc[0]
+        return 0
 
     # --- Módulo de Interpretación ---
     def interpretar_nivel(self, nivel: float) -> Tuple[str, str]:
