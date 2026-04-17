@@ -25,22 +25,20 @@ class GestorFinanciero:
         except Exception:
             return pd.DataFrame(columns=['Fecha', 'Tipo', 'Monto', 'Detalle'])
 
-    # ESTA ES LA FUNCIÓN QUE FALTA
+    # --- ESTA ES LA FUNCIÓN QUE FALTA ---
     def obtener_balance(self):
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            # Calculamos Ingresos - Gastos directamente en SQL
-            cursor.execute("SELECT SUM(CASE WHEN tipo = 'Ingreso' THEN monto ELSE -monto END) FROM finanzas")
-            balance = cursor.fetchone()[0]
+            # Sumamos ingresos y restamos gastos
+            cursor.execute("""
+                SELECT 
+                    SUM(CASE WHEN tipo = 'Ingreso' THEN monto ELSE 0 END) - 
+                    SUM(CASE WHEN tipo = 'Gasto' THEN monto ELSE 0 END) 
+                FROM finanzas
+            """)
+            resultado = cursor.fetchone()[0]
             conn.close()
-            return balance if balance else 0.0
+            return float(resultado) if resultado else 0.0
         except Exception:
             return 0.0
-
-    def borrar_todo(self):
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM finanzas")
-        conn.commit()
-        conn.close()
