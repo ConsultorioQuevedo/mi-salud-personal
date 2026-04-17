@@ -1,24 +1,32 @@
-import sys
-import os
-
-# Esto le dice a Python que busque módulos en la carpeta donde está main.py
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
-import streamlit as st
-from modulos.finanzas import GestorFinanciero
-# ... el resto de tus imports
-
-
 import streamlit as st
 import pandas as pd
-from datetime import datetime
 import os
+import sys
+from datetime import datetime
 
-# Importación de tus módulos core
-from modulos.finanzas import GestorFinanciero
-from modulos.biomonitor import BiomonitorGlucosa
-from modulos.asistente import AsistenteInteligenteQuevedo
-from modulos.generador_pdf import GeneradorPDF
+# ==========================================
+# REFUERZO DE RUTAS (LIMPIEZA VISUAL)
+# ==========================================
+# Esto asegura que Python encuentre la carpeta 'modulos' siempre
+base_path = os.path.dirname(os.path.abspath(__file__))
+if base_path not in sys.path:
+    sys.path.append(base_path)
+
+# ==========================================
+# IMPORTACIÓN DE MÓDULOS
+# ==========================================
+try:
+    from modulos.finanzas import GestorFinanciero
+    from modulos.biomonitor import BiomonitorGlucosa
+    from modulos.asistente import AsistenteInteligenteQuevedo
+    from modulos.generador_pdf import GeneradorPDF
+except ModuleNotFoundError as e:
+    st.error(f"❌ Error de estructura: No se encuentra el módulo '{e.name}'.")
+    st.info("Asegúrate de que la carpeta se llame 'modulos' y tenga un archivo '__init__.py' adentro.")
+    st.stop()
+
+# ==========================================
+# CONFIGURACIÓN DE LA APP
 
 # Configuración de la interfaz
 st.set_page_config(page_title="Quevedo Smart System", layout="wide", page_icon="🤖")
