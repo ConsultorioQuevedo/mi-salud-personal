@@ -4,7 +4,7 @@ from datetime import datetime
 from modulos.finanzas import GestorFinanciero
 from modulos.biomonitor import BiomonitorGlucosa
 from modulos.asistente import AsistenteInteligenteQuevedo
-from modulos.reportes import GeneradorPDF
+
 # CONFIGURACIÓN DE ALTA PRIORIDAD
 st.set_page_config(page_title="Quevedo Smart System", layout="wide", initial_sidebar_state="expanded")
 
