@@ -1,45 +1,49 @@
-import streamlit as st
-from modulos.motor import MotorQuevedo
+import sqlite3
+import pandas as pd
+from datetime import datetime
+from fpdf import FPDF
 
-# Iniciamos el motor una sola vez
-if 'motor' not in st.session_state:
-    st.session_state.motor = MotorQuevedo()
+class MotorQuevedo:
+    def __init__(self, db_path="base_datos_quevedo.db"):
+        self.db_path = db_path
+        self._inicializar_db()
 
-m = st.session_state.motor
+    def _conectar(self):
+        return sqlite3.connect(self.db_path, check_same_thread=False)
 
-st.set_page_config(page_title="Quevedo System Pro", layout="wide")
+    def _inicializar_db(self):
+        """Crea las tablas de Finanzas y Salud si no existen."""
+        with self._conectar() as conn:
+            conn.execute("""CREATE TABLE IF NOT EXISTS finanzas 
+                (id INTEGER PRIMARY KEY AUTOINCREMENT, tipo TEXT, monto REAL, categoria TEXT, fecha DATETIME)""")
+            conn.execute("""CREATE TABLE IF NOT EXISTS salud 
+                (id INTEGER PRIMARY KEY AUTOINCREMENT, nivel INTEGER, estado TEXT, fecha DATETIME)""")
 
-# --- BARRA LATERAL: CONECTIVIDAD TOTAL ---
-with st.sidebar:
-    st.title("🛡️ Centro de Control")
-    st.subheader("🔗 Enlaces de Interés")
-    st.link_button("💊 Farmacia GBC", "https://farmaciagbc.com.do/")
-    st.link_button("🏥 Farmacia Carol", "https://farmaciacarol.com/")
-    st.link_button("📧 Mi Gmail", "https://mail.google.com/")
-    
-    st.divider()
-    if st.button("📄 Crear Reporte PDF"):
-        archivo_pdf = m.generar_reporte_pdf()
-        st.download_button("⬇️ Descargar Ahora", archivo_pdf, "Reporte_Quevedo.pdf")
+    # --- FUNCIONES DE CONTROL ---
+    def ejecutar_borrado(self, tabla, id_reg):
+        """Borra cualquier registro por su ID."""
+        with self._conectar() as conn:
+            cur = conn.cursor()
+            cur.execute(f"DELETE FROM {tabla} WHERE id = ?", (id_reg,))
+            return cur.rowcount > 0
 
-# --- CUERPO PRINCIPAL: LIMPIEZA VISUAL ---
-st.title("🤖 Dashboard Inteligente")
+    def obtener_datos(self, tabla):
+        """Trae los datos para las tablas y el buscador."""
+        with self._conectar() as conn:
+            return pd.read_sql_query(f"SELECT * FROM {tabla} ORDER BY fecha DESC", conn)
 
-# Buscador Universal
-busqueda = st.text_input("🔍 Buscar en todo el sistema...")
+    def registrar_salud(self, nivel):
+        """Lógica de semáforo integrada."""
+        estado = "Verde" if 70 <= nivel <= 140 else "Rojo" if nivel < 70 else "Amarillo"
+        with self._conectar() as conn:
+            conn.execute("INSERT INTO salud (nivel, estado, fecha) VALUES (?, ?, ?)", 
+                         (nivel, estado, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
 
-t1, t2 = st.tabs(["💰 Finanzas Pro", "🩸 Biomonitor de Salud"])
-
-with t1:
-    df_f = m.obtener_datos("finanzas")
-    if busqueda: # Filtro inteligente
-        df_f = df_f[df_f.astype(str).apply(lambda x: busqueda.lower() in x.str.lower()).any(axis=1)]
-    st.dataframe(df_f, use_container_width=True)
-    
-    # Zona de Borrado
-    id_del = st.number_input("ID para borrar", step=1, key="del_f")
-    if st.button("Confirmar Eliminación"):
-        if m.ejecutar_borrado("finanzas", id_del):
-            st.success("Borrado con éxito"); st.rerun()
-
-# (La pestaña de Salud sigue la misma lógica limpia)
+    # --- GENERADOR DE PDF ---
+    def generar_reporte_pdf(self):
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", "B", 16)
+        pdf.cell(0, 10, "REPORTE SISTEMA QUEVEDO", 0, 1, "C")
+        # Aquí el motor extrae los datos y los plasma en el papel digital
+        return pdf.output(dest='S').encode('latin-1')
