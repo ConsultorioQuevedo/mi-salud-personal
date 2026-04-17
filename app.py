@@ -4,92 +4,74 @@ import os
 import sys
 from datetime import datetime
 
-# ==========================================
-# REFUERZO DE RUTAS (LIMPIEZA VISUAL)
-# ==========================================
-# Esto asegura que Python encuentre la carpeta 'modulos' siempre
+# Configuración de rutas
 base_path = os.path.dirname(os.path.abspath(__file__))
 if base_path not in sys.path:
     sys.path.append(base_path)
 
-# ==========================================
-# IMPORTACIÓN DE MÓDULOS
-# ==========================================
 try:
     from modulos.finanzas import GestorFinanciero
     from modulos.biomonitor import BiomonitorGlucosa
-    from modulos.asistente import AsistenteInteligenteQuevedo
-    from modulos.generador_pdf import GeneradorPDF
-except ModuleNotFoundError as e:
-    st.error(f"❌ Error de estructura: No se encuentra el módulo '{e.name}'.")
-    st.info("Asegúrate de que la carpeta se llame 'modulos' y tenga un archivo '__init__.py' adentro.")
+    
+    finanzas = GestorFinanciero()
+    salud = BiomonitorGlucosa()
+except Exception as e:
+    st.error(f"Error de importación: {e}")
     st.stop()
 
-# ==========================================
-# CONFIGURACIÓN DE LA APP
-# ==========================================
-st.set_page_config(page_title="Quevedo Smart System", layout="wide", page_icon="🤖")
+st.set_page_config(page_title="Quevedo Smart System", layout="wide")
 
-# Inicializar clases
-finanzas = GestorFinanciero()
-salud = BiomonitorGlucosa()
-asistente = AsistenteInteligenteQuevedo()
-pdf = GeneradorPDF()
+# --- INTERFAZ ---
+st.title("🤖 Quevedo Smart System")
+menu = st.sidebar.radio("Navegación", ["📊 Panel General", "💰 Finanzas", "🩸 Salud"])
 
-# --- Interfaz Principal ---
-st.title("🤖 Centro de Control Inteligente Quevedo")
-st.markdown("---")
+if menu == "📊 Panel General":
+    col1, col2 = st.columns(2)
+    with col1:
+        resumen = finanzas.obtener_balance_total()
+        st.metric("Balance Neto", f"$ {resumen['ahorro_neto']:,.2f}")
+    with col2:
+        ultimo = salud.obtener_ultimo_registro()
+        # Semáforo de salud
+        color = "normal" if 70 <= ultimo <= 140 else "inverse"
+        st.metric("Última Glucosa", f"{ultimo} mg/dL", delta_color=color)
 
-# Sidebar para navegación o acciones rápidas
-with st.sidebar:
-    st.header("⚙️ Panel de Control")
-    if st.button("📄 Generar Reporte PDF"):
-        # Lógica para recolectar datos y generar PDF
-        pdf.crear_reporte(finanzas.obtener_resumen(), salud.obtener_datos())
-        st.success("¡Reporte generado con éxito!")
-
-# --- Organización en Columnas ---
-col1, col2 = st.columns(2)
-
-with col1:
-    st.subheader("💰 Gestión Financiera")
-    with st.expander("Añadir Transacción", expanded=False):
-        tipo = st.selectbox("Tipo", ["Ingreso", "Gasto"])
-        monto = st.number_input("Monto ($)", min_value=0.0, step=0.01)
-        descr = st.text_input("Descripción")
-        if st.button("Guardar Finanzas"):
-            finanzas.registrar(tipo, monto, descr)
-            st.success("Registrado.")
+elif menu == "💰 Finanzas":
+    st.header("💰 Gestión Financiera")
     
-    # Mostrar tabla de finanzas
+    with st.expander("➕ Nueva Transacción"):
+        c1, c2, c3 = st.columns(3)
+        t = c1.selectbox("Tipo", ["Ingreso", "Gasto"])
+        m = c2.number_input("Monto", min_value=0.0)
+        cat = c3.text_input("Categoría (ej. Comida, Nómina)")
+        desc = st.text_input("Descripción")
+        if st.button("Guardar"):
+            finanzas.registrar_transaccion(t, m, cat, desc)
+            st.success("Registrado correctamente")
+            st.rerun()
+
+    st.subheader("🔍 Historial de Movimientos")
+    busqueda = st.text_input("Filtrar por descripción o categoría")
     df_fin = finanzas.listar_transacciones()
-    st.dataframe(df_fin, use_container_width=True)
+    
+    if not df_fin.empty:
+        if busqueda:
+            df_fin = df_fin[df_fin.astype(str).apply(lambda x: busqueda.lower() in x.str.lower()).any(axis=1)]
+        st.dataframe(df_fin, use_container_width=True)
 
-with col2:
-    st.subheader("🩸 Monitor de Salud")
-    with st.expander("Registrar Glucosa", expanded=False):
-        nivel = st.number_input("Nivel (mg/dL)", min_value=0, max_value=500)
-        nota = st.text_input("Nota (ej. Ayunas, Post-comida)")
-        if st.button("Guardar Salud"):
-            salud.registrar(nivel, nota)
-            st.success("Nivel guardado.")
-            
-    # Mostrar tabla de salud
-    df_salud = salud.listar_registros()
-    st.dataframe(df_salud, use_container_width=True)
+elif menu == "🩸 Salud":
+    st.header("🩸 Monitor de Salud")
+    
+    with st.expander("💉 Registrar Glucosa"):
+        n = st.number_input("Nivel (mg/dL)", min_value=0)
+        notase = st.text_input("Nota (ej. Ayunas, Post-comida)")
+        if st.button("Guardar Lectura"):
+            salud.registrar_lectura(n, notase)
+            st.success("Lectura guardada")
+            st.rerun()
 
-st.markdown("---")
-
-# --- Sección de IA ---
-st.subheader("🧠 Asistente Predictivo")
-pregunta = st.chat_input("Pregúntale algo a tu sistema...")
-if pregunta:
-    respuesta = asistente.responder(pregunta)
-    st.write(f"**Asistente:** {respuesta}")
-
-# --- Botón de Limpieza Visual ---
-if st.sidebar.button("🗑️ Limpiar Base de Datos"):
-    if st.sidebar.checkbox("Confirmar borrado total"):
-        finanzas.borrar_todo()
-        salud.borrar_todo()
-        st.rerun()
+    st.subheader("📈 Historial de Salud")
+    df_salud = salud.obtener_historial()
+    if not df_salud.empty:
+        st.line_chart(df_salud.set_index('Fecha')['Nivel'])
+        st.dataframe(df_salud, use_container_width=True)
